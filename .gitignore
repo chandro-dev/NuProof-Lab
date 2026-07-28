@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.expo/
+.env
+.env.*
+!.env.example
+apps/server/data/*.sqlite
+apps/server/data/*.sqlite-*
+apps/server/data/keys/
+coverage/
+*.log
+.DS_Store
+
