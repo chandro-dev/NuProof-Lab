@@ -4,7 +4,6 @@ import {
   Pressable,
   ScrollView,
   Text,
-  useWindowDimensions,
   View,
   type PressableProps
 } from "react-native";
@@ -39,9 +38,15 @@ export function Screen({
 }
 
 export function ScreenContent({ children }: { children: ReactNode }) {
-  const { width } = useWindowDimensions();
   return (
-    <View style={{ alignSelf: "center", width: Math.max(0, Math.min(width, 760) - 40) }}>
+    <View
+      style={{
+        alignSelf: "center",
+        maxWidth: 760,
+        paddingHorizontal: 20,
+        width: "100%"
+      }}
+    >
       {children}
     </View>
   );
