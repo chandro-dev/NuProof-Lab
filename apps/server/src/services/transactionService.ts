@@ -144,10 +144,25 @@ export class TransactionService {
   }
 
   private toReceipt(row: TransactionReceiptRow): Receipt {
+    const payload: CanonicalReceiptPayload = {
+      version: 1,
+      issuer: "NuProof Lab",
+      transactionId: row.id,
+      receiptId: row.receipt_id,
+      amount: row.amount,
+      currency: row.currency,
+      timestamp: row.timestamp,
+      destinationMasked: row.destination_masked,
+      reference: row.reference,
+      issuedStatus: row.issued_status,
+      keyId: row.key_id
+    };
     const qrPayload: QrPayload = {
       type: "NUPROOF_RECEIPT",
-      version: 1,
-      receiptId: row.receipt_id,
+      version: 2,
+      payload,
+      signature: row.signature,
+      payloadHash: row.payload_hash,
       token: row.verification_token
     };
     return {

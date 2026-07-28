@@ -74,6 +74,8 @@ export class VerificationService {
       signatureValid: true,
       integrityValid: true,
       verificationId,
+      currentStatusAvailable: true,
+      verificationSource: "ONLINE",
       transaction: {
         amount: receipt.amount,
         currency: receipt.currency,

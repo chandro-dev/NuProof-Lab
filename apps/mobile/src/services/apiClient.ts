@@ -1,4 +1,8 @@
-const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+const API_URL = (configuredApiUrl || "http://localhost:3000").replace(/\/$/, "");
+const developmentMode = typeof __DEV__ !== "undefined" && __DEV__;
+
+export const STATUS_LOOKUP_ENABLED = Boolean(configuredApiUrl) || developmentMode;
 
 export class ApiError extends Error {
   public constructor(
@@ -38,4 +42,3 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
 }
 
 export { API_URL };
-

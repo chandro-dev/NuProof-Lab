@@ -9,16 +9,15 @@ export function ReceiptQr({ payload }: { payload: QrPayload }) {
       <View className="rounded-lg bg-white p-4">
         <QRCode
           value={encodeQrPayload(payload)}
-          size={190}
+          size={220}
           color="#17151C"
           backgroundColor="#FFFFFF"
         />
       </View>
       <Text className="mt-4 text-center text-sm font-semibold text-ink">Escanea para verificar</Text>
       <Text className="mt-1 text-center text-xs leading-5 text-muted">
-        El QR contiene un identificador y un token aleatorio, no datos bancarios completos.
+        Incluye un snapshot enmascarado y su firma para validación sin conexión.
       </Text>
     </View>
   );
 }
-

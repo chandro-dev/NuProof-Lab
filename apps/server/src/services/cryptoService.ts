@@ -7,29 +7,13 @@ import {
 } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { CanonicalReceiptPayload } from "@nuproof/shared";
-
-type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-
-function normalize(value: JsonValue): JsonValue {
-  if (Array.isArray(value)) {
-    return value.map(normalize);
-  }
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.keys(value)
-        .sort()
-        .map((key) => [key, normalize(value[key] as JsonValue)])
-    );
-  }
-  if (typeof value === "number" && !Number.isSafeInteger(value)) {
-    throw new Error("Canonical numeric values must be safe integers");
-  }
-  return value;
-}
+import {
+  canonicalizeReceiptPayload,
+  type CanonicalReceiptPayload
+} from "@nuproof/shared";
 
 export function canonicalizePayload(payload: CanonicalReceiptPayload): string {
-  return JSON.stringify(normalize(payload as unknown as JsonValue));
+  return canonicalizeReceiptPayload(payload);
 }
 
 export function hashPayload(canonicalPayload: string): string {
@@ -89,4 +73,3 @@ export function loadOrCreateSigningKeys(keysDir: string): SigningKeys {
     publicKeyPem
   };
 }
-

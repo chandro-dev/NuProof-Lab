@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "ex
 import { useFocusEffect, useRouter } from "expo-router";
 import { Camera, RefreshCw } from "lucide-react-native";
 import { Button, LoadingState, Screen, ScreenHeader } from "@/components/ui";
-import { parseQrPayload } from "@/services/qrService";
+import { encodeQrPayload, parseQrPayload } from "@/services/qrService";
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -46,10 +46,17 @@ export default function ScanScreen() {
     setScanned(true);
     try {
       const payload = parseQrPayload(result.data);
-      router.replace({
-        pathname: "/verification-result",
-        params: { receiptId: payload.receiptId, token: payload.token }
-      });
+      router.replace(
+        payload.version === 2
+          ? {
+              pathname: "/verification-result",
+              params: { proof: encodeQrPayload(payload) }
+            }
+          : {
+              pathname: "/verification-result",
+              params: { receiptId: payload.receiptId, token: payload.token }
+            }
+      );
     } catch {
       setError("Este código no pertenece a NuProof Lab o está corrupto.");
     }
@@ -98,4 +105,3 @@ export default function ScanScreen() {
     </Screen>
   );
 }
-

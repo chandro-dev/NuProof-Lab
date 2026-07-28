@@ -17,7 +17,8 @@ estado operativo. Todos los datos de la PoC son ficticios.
 | Information disclosure: enumeración | Automatizar consultas sobre IDs. | Descubrimiento de operaciones. | Identificadores no secuenciales, bearer token y rate limit. | El limiter de memoria no coordina varias instancias. |
 | Information disclosure: token filtrado | Compartir captura/QR con terceros. | Consulta de importe y estado minimizados. | Data minimization; no se exponen nombres ni cuentas completas. | El QR es transferible. Producción podría usar expiración o consentimiento según el caso. |
 | Spoofing: clave privada robada | Extraer PEM del host. | Emisión de firmas fraudulentas válidas. | Permisos de archivo, directorio fuera de Git y separación móvil/servidor. | El host local no ofrece garantías de HSM. Producción debe usar KMS/HSM y rotación. |
-| Replay | Reutilizar QR legítimo repetidamente. | Consultas reiteradas o uso engañoso fuera de contexto. | La consulta siempre muestra estado actual; auditoría registra intentos. | No hay expiración en la PoC porque los comprobantes deben seguir verificables. |
+| Replay | Reutilizar QR legítimo repetidamente. | Consultas reiteradas o uso engañoso fuera de contexto. | La firma portable conserva datos emitidos y la consulta online, cuando existe, muestra estado actual. | Sin API disponible no puede conocerse una reversión posterior. |
+| Spoofing: clave dentro del QR | Incluir una clave del atacante junto a una firma falsa autoconsistente. | El atacante se presenta como emisor. | La app ignora claves aportadas por el QR y resuelve `keyId` contra un registro público fijado. | La rotación exige distribuir de forma confiable el nuevo registro público. |
 | Denial of Service: brute force API | Saturar `/api/verify`. | Indisponibilidad local. | Límite por IP, body de 16 KB y validación estricta. | Ataques distribuidos o contra otras rutas requieren WAF/gateway. |
 | Elevation of privilege: backend compromise | Obtener ejecución en el proceso. | Acceso a BD y a la clave local. | Dependencias acotadas, Helmet, validación y respuestas sin secretos. | Comprometer el proceso rompe el límite de confianza. Producción separa signing y usa HSM. |
 | Tampering: base de datos | Editar importe, fecha, destino, firma o hash en SQLite. | Historial falso. | Verificación reconstruye el payload y comprueba firma y hash. Test automatizado incluido. | Un atacante con BD y clave privada puede refirmar; auditoría inmutable externa es necesaria. |
@@ -29,4 +30,3 @@ estado operativo. Todos los datos de la PoC son ficticios.
 El portal de verificación acepta datos hostiles. El simulador de emisor es un
 área interna conceptual, pero carece deliberadamente de autenticación en la PoC
 local. Nunca debe exponerse tal cual en una red no confiable.
-

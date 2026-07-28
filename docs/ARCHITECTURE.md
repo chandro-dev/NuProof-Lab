@@ -46,6 +46,19 @@ codificados Base64URL. Los importes usan enteros, nunca punto flotante.
 
 El hash es una ayuda de inspección; la autenticidad depende de Ed25519.
 
+## QR portable v2
+
+El QR v2 contiene el payload canónico enmascarado, firma, hash, `keyId` y token.
+La app conserva una clave pública de confianza por `keyId` y verifica
+localmente SHA-256 y Ed25519. La clave incluida por un atacante nunca se acepta
+como raíz de confianza.
+
+La consulta a `/api/verify` es posterior y opcional. Si falla, la aplicación
+distingue entre autenticidad documental verificada y estado operativo no
+disponible. Si responde, el estado actual puede reemplazar al estado emitido.
+Los QR v1 con solo `receiptId + token` se mantienen compatibles, pero requieren
+la API.
+
 ## Estado histórico y actual
 
 `issuedStatus` forma parte del payload firmado e inmutable. `transactions.status`
@@ -77,4 +90,3 @@ corresponder a una operación actualmente reversada.
   almacenamiento transaccional endurecido, HSM/KMS y auditoría inmutable.
 - El token reduce enumeración, pero quien obtiene el QR puede consultar el
   comprobante minimizado. Es un bearer secret y debe tratarse como tal.
-

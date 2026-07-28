@@ -13,9 +13,10 @@ una captura no demuestra quién la emitió ni cuál es el estado actual del pago
 ## Solución propuesta
 
 NuProof Lab crea un snapshot explícito, lo serializa de forma determinista,
-calcula SHA-256 y lo firma con Ed25519 en un servidor local. El QR contiene solo
-un UUID y un token aleatorio de 256 bits. La persona receptora consulta el
-registro original, valida la firma y recibe por separado el estado actual.
+calcula SHA-256 y lo firma con Ed25519 en un servidor local. El QR v2 contiene
+ese snapshot enmascarado, firma, hash, `keyId` y un token aleatorio. La app
+valida localmente la prueba y consulta por separado el estado actual cuando la
+API está disponible.
 
 ## Arquitectura
 
@@ -41,7 +42,7 @@ Git y nunca cruza la API. Consulte [Architecture](docs/ARCHITECTURE.md),
 
 ```text
 transaction -> canonical JSON -> SHA-256 -> Ed25519 signature -> receipt -> QR
-QR -> receiptId + token -> lookup -> signature verification -> current status
+QR -> local Ed25519 verification -> optional API lookup -> current status
 ```
 
 El snapshot firmado incluye importe, moneda, timestamp, destino enmascarado,
@@ -109,6 +110,11 @@ $env:EXPO_PUBLIC_API_URL="http://192.168.1.25:3000"
 npm run dev:mobile
 ```
 
+`EXPO_PUBLIC_NUPROOF_ED25519_PUBLIC_KEY` fija la clave pública confiable para
+`nuproof-dev-key-2026-01`. Es pública y puede configurarse en Vercel. Debe
+actualizarse junto con `keyId` cuando se roten las claves. Nunca configure una
+clave tomada del propio QR como clave confiable.
+
 iOS Simulator requiere macOS. Expo Go permite probar iOS físico cuando la
 versión instalada admite SDK 57.
 
@@ -135,9 +141,10 @@ npm run lint
 ```
 
 La suite cubre canonicalización, firma válida, cambio de importe/destino/fecha,
-clave incorrecta, ID/token inválidos, reversión, API y alteración directa de
-SQLite. El caso obligatorio firma `100000`, sustituye por `8000000` y exige una
-firma inválida.
+clave incorrecta, ID/token inválidos, reversión, API, alteración directa de
+SQLite y verificación portable sin servidor. El caso obligatorio firma
+`100000`, sustituye por `8000000`, recalcula incluso el hash y exige una firma
+inválida.
 
 ## Guion de fraude
 
@@ -152,6 +159,16 @@ firma inválida.
 7. Ejecute **Reversar transacción**. La firma sigue válida, pero el estado aparece
    en amarillo como `REVERSED`.
 8. Use **Reset demo** para repetir. Las claves no se regeneran.
+
+Un QR v2 nuevo puede escanearse desde la versión web publicada en Vercel aunque
+el servidor local esté apagado. En ese caso se muestra firma e integridad
+válidas junto a la advertencia **Estado actual no disponible**. Los QR v1
+generados antes de esta versión deben volver a mostrarse/generarse para incluir
+la prueba portable.
+
+En builds públicas sin `EXPO_PUBLIC_API_URL`, la app no consulta el `localhost`
+del visitante. La búsqueda de estado se habilita únicamente en desarrollo o
+cuando se configura explícitamente una API pública.
 
 ## Decisiones de seguridad
 
@@ -181,4 +198,3 @@ disaster recovery y separación real del signing service.
 - Pruebas E2E de cámara en dispositivos y accesibilidad automatizada.
 - Recibos descargables que incorporen el payload firmado y protección anti-downgrade.
 - Idempotencia y conciliación con un core transaccional simulado.
-
