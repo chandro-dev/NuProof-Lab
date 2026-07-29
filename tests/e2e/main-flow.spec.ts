@@ -44,3 +44,17 @@ test("an authentic receipt shows its later reversal", async ({ page, request }) 
   await expect(page.getByText("Reversada", { exact: true })).toBeVisible();
   await expect(page.getByText("Completada", { exact: true })).toBeVisible();
 });
+
+test("security lab explains which cryptographic stages fail", async ({ page }) => {
+  await page.goto("/security-lab");
+  await page.getByRole("button", { name: "Preparar laboratorio" }).click();
+  await expect(page.getByRole("heading", { name: "VERIFIED" })).toBeVisible();
+  await expect(page.getByText("Ruta de validación")).toBeVisible();
+  await expect(page.getByText("Aprobado")).toHaveCount(7);
+
+  await page.getByRole("button", { name: "Ejecutar escenario: Monto modificado" }).click();
+  await expect(page.getByRole("heading", { name: "INVALID_SIGNATURE" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Integridad SHA-256/ })).toContainText("Falló");
+  await expect(page.getByRole("button", { name: /Firma Ed25519/ })).toContainText("Falló");
+  await expect(page.getByText("Los hashes son diferentes.")).toBeVisible();
+});

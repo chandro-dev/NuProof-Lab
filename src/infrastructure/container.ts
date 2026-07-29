@@ -67,12 +67,22 @@ function createContainer() {
 
 export type AppContainer = ReturnType<typeof createContainer>;
 
+const CONTAINER_VERSION = 2;
+
 declare global {
   var __nuproofContainer: AppContainer | undefined;
+  var __nuproofContainerVersion: number | undefined;
 }
 
 export function getContainer(): AppContainer {
-  const container = globalThis.__nuproofContainer ?? createContainer();
-  if (process.env.NODE_ENV !== "production") globalThis.__nuproofContainer = container;
+  const cachedContainer =
+    globalThis.__nuproofContainerVersion === CONTAINER_VERSION
+      ? globalThis.__nuproofContainer
+      : undefined;
+  const container = cachedContainer ?? createContainer();
+  if (process.env.NODE_ENV !== "production") {
+    globalThis.__nuproofContainer = container;
+    globalThis.__nuproofContainerVersion = CONTAINER_VERSION;
+  }
   return container;
 }

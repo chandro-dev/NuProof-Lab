@@ -1,4 +1,4 @@
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type {
   AuditWriter,
   PublicKeyRegistry,
@@ -8,8 +8,13 @@ import type {
   TransactionRepository
 } from "@/src/domain/ports";
 import { buildReceiptPayload } from "@/src/domain/model";
-import { hashReceipt, receiptBytes } from "@/src/domain/receipt-crypto";
-import type { VerificationResult, VerifyReceiptInput } from "@/src/types/contracts";
+import { canonicalizeReceipt, hashReceipt, receiptBytes } from "@/src/domain/receipt-crypto";
+import type {
+  SecurityLabAnalysis,
+  SecurityTraceCheck,
+  VerificationResult,
+  VerifyReceiptInput
+} from "@/src/types/contracts";
 
 function hashesMatch(actual: string, expected: string): boolean {
   const left = Buffer.from(actual, "hex");
@@ -85,6 +90,144 @@ export class VerificationService {
     return result;
   }
 
+  public async analyze(
+    input: VerifyReceiptInput,
+    presentedAmountMinor?: number
+  ): Promise<SecurityLabAnalysis> {
+    const verificationId = randomUUID();
+    const checks: SecurityTraceCheck[] = [];
+    const receipt = await this.receipts.findById(input.receiptId);
+    if (!receipt) {
+      checks.push({
+        id: "RECEIPT_LOOKUP",
+        state: "FAIL",
+        title: "Registro del emisor",
+        summary: "El receiptId no existe en el repositorio."
+      });
+      return this.analysisFailure("NOT_FOUND", verificationId, checks);
+    }
+    checks.push({
+      id: "RECEIPT_LOOKUP",
+      state: "PASS",
+      title: "Registro del emisor",
+      summary: "El receiptId corresponde a un comprobante persistido."
+    });
+
+    if (!this.tokenDigester.matches(input.token, receipt.verificationTokenHash)) {
+      checks.push({
+        id: "TOKEN",
+        state: "FAIL",
+        title: "Token de verificación",
+        summary: "La comparación HMAC en tiempo constante no coincide."
+      });
+      return this.analysisFailure("INVALID_VERIFICATION_TOKEN", verificationId, checks);
+    }
+    checks.push({
+      id: "TOKEN",
+      state: "PASS",
+      title: "Token de verificación",
+      summary: "El token presentado coincide con el digest almacenado."
+    });
+
+    const transaction = await this.transactions.findById(receipt.transactionId);
+    if (!transaction) {
+      return this.analysisFailure("NOT_FOUND", verificationId, checks);
+    }
+
+    const inspectedReceipt =
+      presentedAmountMinor === undefined
+        ? receipt
+        : { ...receipt, amountMinor: presentedAmountMinor };
+    const payload = buildReceiptPayload(inspectedReceipt);
+    const canonical = canonicalizeReceipt(payload);
+    checks.push({
+      id: "CANONICALIZATION",
+      state: "PASS",
+      title: "Payload canónico",
+      summary: `${Buffer.byteLength(canonical, "utf8")} bytes deterministas listos para validar.`
+    });
+
+    const computedHash = hashReceipt(payload);
+    const integrityValid = hashesMatch(computedHash, receipt.payloadHash);
+    checks.push({
+      id: "HASH",
+      state: integrityValid ? "PASS" : "FAIL",
+      title: "Integridad SHA-256",
+      summary: integrityValid
+        ? "El hash calculado coincide con el hash firmado y almacenado."
+        : "El hash calculado cambió: los datos protegidos fueron modificados."
+    });
+
+    const key = await this.keys.resolve(receipt.keyId);
+    checks.push({
+      id: "PUBLIC_KEY",
+      state: key ? "PASS" : "FAIL",
+      title: "Clave pública",
+      summary: key
+        ? `El registro resolvió la clave histórica ${receipt.keyId}.`
+        : `No existe una clave pública para ${receipt.keyId}.`
+    });
+
+    const signatureValid =
+      key !== null &&
+      (await this.verifier.verify(receiptBytes(payload), receipt.signature, key.publicKey));
+    checks.push({
+      id: "SIGNATURE",
+      state: signatureValid ? "PASS" : "FAIL",
+      title: "Firma Ed25519",
+      summary: signatureValid
+        ? "La firma corresponde exactamente a los bytes canónicos."
+        : "La firma no corresponde al payload presentado."
+    });
+
+    const reversed = transaction.status === "REVERSED";
+    checks.push({
+      id: "CURRENT_STATUS",
+      state: reversed ? "WARN" : "PASS",
+      title: "Estado operativo",
+      summary: reversed
+        ? "El comprobante es auténtico, pero la operación fue reversada después."
+        : `El estado actual es ${transaction.status}.`
+    });
+
+    const authentic = integrityValid && signatureValid;
+    const result = !authentic
+      ? "INVALID_SIGNATURE"
+      : reversed
+        ? "VERIFIED_REVERSED"
+        : "VERIFIED";
+    const analysis: SecurityLabAnalysis = {
+      result,
+      authentic,
+      signatureValid,
+      integrityValid,
+      verificationId,
+      checks,
+      artifacts: {
+        canonicalPayload: payload as unknown as Record<string, unknown>,
+        canonicalBytes: Buffer.byteLength(canonical, "utf8"),
+        storedHash: receipt.payloadHash,
+        computedHash,
+        signature: receipt.signature,
+        keyId: receipt.keyId,
+        publicKeyFingerprint: key
+          ? createHash("sha256").update(key.publicKey, "utf8").digest("hex")
+          : null,
+        algorithm: "Ed25519"
+      },
+      receipt: {
+        id: receipt.id,
+        amountMinor: receipt.amountMinor,
+        currency: receipt.currency,
+        destinationMasked: receipt.destinationMasked,
+        issuedAt: receipt.issuedAt.toISOString(),
+        statusAtIssuance: receipt.statusAtIssuance
+      },
+      transaction: { currentStatus: transaction.status }
+    };
+    return analysis;
+  }
+
   private async verifyDetachedReceipt(
     receipt: Awaited<ReturnType<ReceiptRepository["findById"]>> & {},
     input: VerifyReceiptInput,
@@ -119,6 +262,34 @@ export class VerificationService {
       signatureValid: false,
       integrityValid: false,
       verificationId
+    };
+  }
+
+  private analysisFailure(
+    result: "NOT_FOUND" | "INVALID_VERIFICATION_TOKEN",
+    verificationId: string,
+    checks: SecurityTraceCheck[]
+  ): SecurityLabAnalysis {
+    const skippedStages: Array<[SecurityTraceCheck["id"], string]> = [
+      ["CANONICALIZATION", "Payload canónico"],
+      ["HASH", "Integridad SHA-256"],
+      ["PUBLIC_KEY", "Clave pública"],
+      ["SIGNATURE", "Firma Ed25519"],
+      ["CURRENT_STATUS", "Estado operativo"]
+    ];
+    const skipped: SecurityTraceCheck[] = skippedStages.map(([id, title]) => ({
+      id,
+      state: "SKIPPED" as const,
+      title,
+      summary: "Esta etapa no se ejecuta después del fallo anterior."
+    }));
+    return {
+      result,
+      authentic: false,
+      signatureValid: false,
+      integrityValid: false,
+      verificationId,
+      checks: [...checks, ...skipped]
     };
   }
 }

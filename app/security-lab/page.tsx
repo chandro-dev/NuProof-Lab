@@ -8,9 +8,9 @@ export default function SecurityLabPage() {
   return (
     <Container className="min-h-[calc(100vh-8rem)] py-10 sm:py-14">
       <PageHeader
-        eyebrow="Simulación de fraude"
+        eyebrow="Criptografía aplicada"
         title="Security Lab"
-        description="Cada escenario ejecuta la verificación real. No hay indicadores de validez simulados en la interfaz."
+        description="Inspecciona cómo registro, token, payload canónico, hash, clave pública, firma y estado construyen una decisión verificable."
       />
       <SecurityLab />
     </Container>

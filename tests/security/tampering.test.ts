@@ -28,4 +28,65 @@ describe("security failures", () => {
       integrityValid: false
     });
   });
+
+  it("reports the exact failed stages in the security trace", async () => {
+    const context = createTestContext();
+    const transaction = await context.transactions.create(transactionInput);
+    const receipt = await context.receipts.issue(transaction.id);
+    const analysis = await context.verification.analyze(
+      { receiptId: receipt.id, token: receipt.verificationToken! },
+      250_000_000
+    );
+
+    expect(analysis.result).toBe("INVALID_SIGNATURE");
+    expect(analysis.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "RECEIPT_LOOKUP", state: "PASS" }),
+        expect.objectContaining({ id: "TOKEN", state: "PASS" }),
+        expect.objectContaining({ id: "HASH", state: "FAIL" }),
+        expect.objectContaining({ id: "SIGNATURE", state: "FAIL" })
+      ])
+    );
+    expect(analysis.artifacts?.computedHash).not.toBe(analysis.artifacts?.storedHash);
+  });
+
+  it("stops the trace before protected evidence when the token is invalid", async () => {
+    const context = createTestContext();
+    const transaction = await context.transactions.create(transactionInput);
+    const receipt = await context.receipts.issue(transaction.id);
+    const analysis = await context.verification.analyze({
+      receiptId: receipt.id,
+      token: "x".repeat(43)
+    });
+
+    expect(analysis.result).toBe("INVALID_VERIFICATION_TOKEN");
+    expect(analysis.artifacts).toBeUndefined();
+    expect(analysis.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "TOKEN", state: "FAIL" }),
+        expect.objectContaining({ id: "SIGNATURE", state: "SKIPPED" })
+      ])
+    );
+  });
+
+  it("marks reversal as a warning without invalidating cryptography", async () => {
+    const context = createTestContext();
+    const transaction = await context.transactions.create(transactionInput);
+    const receipt = await context.receipts.issue(transaction.id);
+    await context.transactions.changeStatus(transaction.id, "REVERSED");
+    const analysis = await context.verification.analyze({
+      receiptId: receipt.id,
+      token: receipt.verificationToken!
+    });
+
+    expect(analysis).toMatchObject({
+      result: "VERIFIED_REVERSED",
+      authentic: true,
+      signatureValid: true,
+      integrityValid: true
+    });
+    expect(analysis.checks).toContainEqual(
+      expect.objectContaining({ id: "CURRENT_STATUS", state: "WARN" })
+    );
+  });
 });

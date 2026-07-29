@@ -1,6 +1,7 @@
 import type {
   CreateTransactionInput,
   IssuedReceiptView,
+  SecurityLabAnalysis,
   VerificationResult
 } from "@/src/types/contracts";
 import type { AuditEvent, Transaction, TransactionStatus } from "@/src/domain/model";
@@ -91,5 +92,20 @@ export async function verifyTamperedAmount(
   return request<VerificationResult>("/security-lab/tamper", {
     method: "POST",
     body: JSON.stringify({ receiptId, token, presentedAmountMinor })
+  });
+}
+
+export async function analyzeReceiptSecurity(
+  receiptId: string,
+  token: string,
+  presentedAmountMinor?: number
+) {
+  return request<SecurityLabAnalysis>("/security-lab/analyze", {
+    method: "POST",
+    body: JSON.stringify({
+      receiptId,
+      token,
+      ...(presentedAmountMinor === undefined ? {} : { presentedAmountMinor })
+    })
   });
 }

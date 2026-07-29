@@ -36,6 +36,14 @@ export const tamperReceiptSchema = z
   })
   .strict();
 
+export const analyzeReceiptSchema = z
+  .object({
+    receiptId: uuidSchema,
+    token: verificationTokenSchema,
+    presentedAmountMinor: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional()
+  })
+  .strict();
+
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
 export type VerifyReceiptInput = z.infer<typeof verifyReceiptSchema>;
 
@@ -80,5 +88,37 @@ export interface VerificationResult {
   };
   transaction?: {
     currentStatus: string;
+  };
+}
+
+export type SecurityCheckState = "PASS" | "FAIL" | "WARN" | "SKIPPED";
+
+export type SecurityCheckId =
+  | "RECEIPT_LOOKUP"
+  | "TOKEN"
+  | "CANONICALIZATION"
+  | "HASH"
+  | "PUBLIC_KEY"
+  | "SIGNATURE"
+  | "CURRENT_STATUS";
+
+export interface SecurityTraceCheck {
+  id: SecurityCheckId;
+  state: SecurityCheckState;
+  title: string;
+  summary: string;
+}
+
+export interface SecurityLabAnalysis extends VerificationResult {
+  checks: SecurityTraceCheck[];
+  artifacts?: {
+    canonicalPayload: Record<string, unknown>;
+    canonicalBytes: number;
+    storedHash: string;
+    computedHash: string;
+    signature: string;
+    keyId: string;
+    publicKeyFingerprint: string | null;
+    algorithm: "Ed25519";
   };
 }
