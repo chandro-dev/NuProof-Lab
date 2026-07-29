@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import Link from "next/link";
 import { FlaskConical, Landmark, ScanLine, ShieldCheck } from "lucide-react";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: {
@@ -17,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={inter.variable}>
+    <html lang="es">
       <body className="font-sans antialiased">
         <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">

@@ -21,13 +21,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers }
   });
-  const body = (await response.json()) as T & {
+  const isJson = response.headers
+    .get("content-type")
+    ?.toLowerCase()
+    .includes("application/json");
+  const body = (isJson ? await response.json() : {}) as T & {
     error?: { code?: string; message?: string };
   };
   if (!response.ok) {
+    const infrastructureMessage =
+      response.status === 403
+        ? "Vercel bloqueó la solicitud antes de llegar a la API. Revisa Deployment Protection."
+        : "La solicitud no pudo completarse.";
     throw new ApiClientError(
       body.error?.code ?? "REQUEST_FAILED",
-      body.error?.message ?? "La solicitud no pudo completarse.",
+      body.error?.message ?? infrastructureMessage,
       response.status
     );
   }

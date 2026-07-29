@@ -18,6 +18,7 @@ import {
   DrizzleTransactionRepository
 } from "./database/repositories";
 import { InMemoryRateLimitService } from "./security/rate-limit";
+import { getCanonicalAppUrl } from "@/src/lib/app-url";
 
 function createContainer() {
   const database = getDatabase();
@@ -35,7 +36,7 @@ function createContainer() {
     signing,
     tokenDigester,
     audit,
-    (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
+    getCanonicalAppUrl()
   );
   const verification = new VerificationService(
     transactionRepository,

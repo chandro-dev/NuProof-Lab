@@ -4,6 +4,7 @@ import { Check, LockKeyhole, ShieldCheck } from "lucide-react";
 import { Container, StatusPill } from "@/components/ui";
 import { ReceiptVerificationAccess } from "@/components/receipt-verification-access";
 import { getContainer } from "@/src/infrastructure/container";
+import { getCanonicalAppUrl } from "@/src/lib/app-url";
 import { formatDate, formatMoney } from "@/src/lib/format";
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default async function ReceiptPage({
 }) {
   const { id } = await params;
   const receipt = await getContainer().receipts.getById(id);
-  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const appUrl = getCanonicalAppUrl();
 
   return (
     <Container className="max-w-4xl py-10 sm:py-14">

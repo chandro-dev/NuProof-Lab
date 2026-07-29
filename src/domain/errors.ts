@@ -47,7 +47,11 @@ export class ReceiptAlreadyIssuedError extends DomainError {
 
 export class DemoModeDisabledError extends DomainError {
   public constructor() {
-    super("DEMO_MODE_DISABLED", "Demo operations are disabled.", 403);
+    super(
+      "DEMO_MODE_DISABLED",
+      "El emisor de demostración no está habilitado en este entorno.",
+      403
+    );
   }
 }
 

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { DemoModeDisabledError, DomainError, UnauthorizedError } from "@/src/domain/errors";
 import { logger } from "@/src/infrastructure/observability/logger";
+import { isAllowedRequestOrigin } from "@/src/lib/app-url";
 
 export function requestId(request: NextRequest): string {
   return request.headers.get("x-request-id")?.slice(0, 100) || randomUUID();
@@ -29,17 +30,7 @@ export function requireDemoAccess(request: NextRequest): void {
   const candidate = request.headers.get("x-internal-api-key");
   if (configuredKey && candidate && constantTimeStringEqual(configuredKey, candidate)) return;
 
-  const expectedOrigin = (process.env.APP_URL ?? request.nextUrl.origin).replace(/\/$/, "");
-  const origin = request.headers.get("origin")?.replace(/\/$/, "");
-  const referer = request.headers.get("referer");
-  const sameSite = request.headers.get("sec-fetch-site") === "same-origin";
-  if (
-    origin === expectedOrigin ||
-    referer?.startsWith(`${expectedOrigin}/`) ||
-    sameSite
-  ) {
-    return;
-  }
+  if (isAllowedRequestOrigin(request)) return;
   throw new UnauthorizedError();
 }
 

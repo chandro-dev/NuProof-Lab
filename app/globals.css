@@ -13,7 +13,7 @@
   --color-warning-soft: #fff4df;
   --color-danger: #b42318;
   --color-danger-soft: #feeceb;
-  --font-sans: var(--font-inter);
+  --font-sans: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 * {

@@ -145,6 +145,13 @@ Set these server environment variables:
 - `DEMO_MODE`: `true` only for this public PoC;
 - `INTERNAL_API_KEY`: random issuer API credential for non-browser clients.
 
+On Vercel, enable **Automatically expose System Environment Variables**. The
+application uses `VERCEL_PROJECT_PRODUCTION_URL` as the canonical QR origin and
+the current deployment host for same-origin Preview requests. Configure
+`DEMO_MODE=true` for every Vercel environment where `/issuer` and
+`/security-lab` must be interactive; environment changes require a new
+deployment.
+
 Apply migrations explicitly against the managed database before deployment:
 
 ```bash
