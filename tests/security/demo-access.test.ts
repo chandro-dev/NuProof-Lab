@@ -35,4 +35,36 @@ describe("demo route origin access", () => {
 
     expect(isAllowedRequestOrigin(request, "https://nuproof.vercel.app")).toBe(false);
   });
+
+  it("allows a same-origin browser fetch without referrer headers", () => {
+    const request = new NextRequest(
+      "https://nuproof.vercel.app/api/v1/transactions",
+      {
+        method: "GET",
+        headers: {
+          "sec-fetch-site": "same-origin",
+          "x-forwarded-host": "nuproof.vercel.app",
+          "x-forwarded-proto": "https"
+        }
+      }
+    );
+
+    expect(isAllowedRequestOrigin(request, "https://nuproof.vercel.app")).toBe(true);
+  });
+
+  it("keeps direct API navigation unauthorized", () => {
+    const request = new NextRequest(
+      "https://nuproof.vercel.app/api/v1/transactions",
+      {
+        method: "GET",
+        headers: {
+          "sec-fetch-site": "none",
+          "x-forwarded-host": "nuproof.vercel.app",
+          "x-forwarded-proto": "https"
+        }
+      }
+    );
+
+    expect(isAllowedRequestOrigin(request, "https://nuproof.vercel.app")).toBe(false);
+  });
 });

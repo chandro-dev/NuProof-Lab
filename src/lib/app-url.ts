@@ -58,8 +58,12 @@ export function isAllowedRequestOrigin(
   const origin = normalizeOrigin(request.headers.get("origin"));
   const refererOrigin = normalizeOrigin(request.headers.get("referer"));
 
-  return Boolean(
-    (origin && allowedOrigins.has(origin)) ||
-      (refererOrigin && allowedOrigins.has(refererOrigin))
-  );
+  if (origin || refererOrigin) {
+    return Boolean(
+      (origin && allowedOrigins.has(origin)) ||
+        (refererOrigin && allowedOrigins.has(refererOrigin))
+    );
+  }
+
+  return request.headers.get("sec-fetch-site") === "same-origin";
 }
