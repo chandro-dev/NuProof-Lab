@@ -45,6 +45,14 @@ export function AuditLog() {
         </Button>
       </div>
       <div className="divide-y divide-line border-y border-line">
+        {events.length === 0 ? (
+          <div className="py-10 text-center">
+            <p className="font-bold">No hay eventos en esta sesión</p>
+            <p className="mt-2 text-sm text-muted">
+              Crea un comprobante sin recargar la pestaña para ver su traza temporal.
+            </p>
+          </div>
+        ) : null}
         {events.map((event) => (
           <article key={event.id} className="grid gap-3 py-4 sm:grid-cols-[1fr_auto]">
             <div className="flex min-w-0 gap-3">

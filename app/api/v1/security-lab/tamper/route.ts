@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getContainer } from "@/src/infrastructure/container";
+import { getStatelessReceiptService } from "@/src/infrastructure/stateless";
 import { tamperReceiptSchema } from "@/src/types/contracts";
 import {
   handleHttpError,
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const { presentedAmountMinor, ...input } = tamperReceiptSchema.parse(
       await parseJson(request)
     );
-    const result = await getContainer().verification.verifyPresentedAmount(
+    const result = await getStatelessReceiptService().analyze(
       input,
       presentedAmountMinor
     );

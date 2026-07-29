@@ -16,7 +16,7 @@ function parseVerificationValue(value: string): { receiptId: string; token: stri
   } catch {
     // The compact fallback below handles non-URL input.
   }
-  const compact = trimmed.match(/^([0-9a-f-]{36})[.:]([A-Za-z0-9_-]{32,200})$/i);
+  const compact = trimmed.match(/^([0-9a-f-]{36})[.:]([A-Za-z0-9_-]{32,8192})$/i);
   if (compact?.[1] && compact[2]) return { receiptId: compact[1], token: compact[2] };
   throw new Error("El código no pertenece a NuProof Lab.");
 }
@@ -140,8 +140,8 @@ export function VerifyEntry({ startCamera = false }: { startCamera?: boolean }) 
           <div className="flex gap-3">
             <ScanLine className="mt-0.5 shrink-0 text-success" size={20} />
             <p className="text-sm leading-6 text-muted">
-              El QR solo abre el proceso. La autenticidad se decide en la API mediante el registro,
-              el token, el hash y la firma del emisor.
+              El QR contiene la evidencia firmada. La API valida su estructura, hash y firma
+              sin consultar una base de datos.
             </p>
           </div>
         </div>

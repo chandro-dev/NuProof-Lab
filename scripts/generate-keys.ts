@@ -12,12 +12,10 @@ const privateBase64 = privateDer.toString("base64");
 const publicBase64 = publicDer.toString("base64");
 const registry = [{ keyId, algorithm: "Ed25519", publicKey: publicBase64 }];
 const directory = path.resolve("keys");
-const tokenPepper = randomBytes(32).toString("base64url");
 const keyLines = [
   `NUPROOF_KEY_ID=${keyId}`,
   `NUPROOF_PRIVATE_KEY=${privateBase64}`,
-  `NUPROOF_PUBLIC_KEYS_JSON='${JSON.stringify(registry)}'`,
-  `NUPROOF_TOKEN_PEPPER=${tokenPepper}`
+  `NUPROOF_PUBLIC_KEYS_JSON='${JSON.stringify(registry)}'`
 ];
 
 mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -36,7 +34,6 @@ if (!existsSync(localEnvPath)) {
   writeFileSync(
     localEnvPath,
     [
-      "DATABASE_URL=postgresql://nuproof:nuproof@localhost:5432/nuproof",
       ...keyLines,
       "APP_URL=http://localhost:3000",
       "DEMO_MODE=true",

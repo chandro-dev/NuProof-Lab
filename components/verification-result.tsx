@@ -85,7 +85,7 @@ export function VerificationResult({
           {valid
             ? reversed
               ? "La firma es válida, pero la operación fue reversada después de emitir el comprobante."
-              : "La firma digital, la integridad y el registro del emisor fueron validados."
+              : "La firma digital y la integridad de la evidencia fueron validadas."
             : "El comprobante presentado no pudo validarse. No lo utilices como confirmación de pago."}
         </p>
       </section>

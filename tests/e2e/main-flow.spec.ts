@@ -12,37 +12,13 @@ test("issuer creates, issues and verifies a receipt", async ({ page }) => {
   await expect(page.getByText("Completada").last()).toBeVisible();
 });
 
-test("an authentic receipt shows its later reversal", async ({ page, request }) => {
-  const headers = {
-    Origin: "http://localhost:3000",
-    "Content-Type": "application/json"
-  };
-  const transactionResponse = await request.post("/api/v1/transactions", {
-    headers,
-    data: {
-      amountMinor: 25_000_000,
-      currency: "COP",
-      recipientAlias: "Andrea Torres",
-      destinationMasked: "****5832",
-      reference: "E2E reverse"
-    }
-  });
-  expect(transactionResponse.ok()).toBeTruthy();
-  const transaction = (await transactionResponse.json()).transaction;
-  const receiptResponse = await request.post(
-    `/api/v1/transactions/${transaction.id}/receipts`,
-    { headers }
-  );
-  const receipt = (await receiptResponse.json()).receipt;
-  await request.patch(`/api/v1/transactions/${transaction.id}/status`, {
-    headers,
-    data: { status: "REVERSED" }
-  });
-
-  await page.goto(`/verify/${receipt.id}#token=${encodeURIComponent(receipt.verificationToken)}`);
-  await expect(page.getByRole("heading", { name: "COMPROBANTE AUTÉNTICO" })).toBeVisible();
-  await expect(page.getByText("Reversada", { exact: true })).toBeVisible();
-  await expect(page.getByText("Completada", { exact: true })).toBeVisible();
+test("the security lab simulates a reversal in the browser session", async ({ page }) => {
+  await page.goto("/security-lab");
+  await page.getByRole("button", { name: "Preparar laboratorio" }).click();
+  await page.getByRole("button", { name: "Ejecutar escenario: Operación reversada" }).click();
+  await expect(page.getByRole("heading", { name: "VERIFIED_REVERSED" })).toBeVisible();
+  await expect(page.getByText("Reversada", { exact: true }).last()).toBeVisible();
+  await expect(page.getByText("Completada", { exact: true }).last()).toBeVisible();
 });
 
 test("security lab explains which cryptographic stages fail", async ({ page }) => {
@@ -56,5 +32,5 @@ test("security lab explains which cryptographic stages fail", async ({ page }) =
   await expect(page.getByRole("heading", { name: "INVALID_SIGNATURE" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Integridad SHA-256/ })).toContainText("Falló");
   await expect(page.getByRole("button", { name: /Firma Ed25519/ })).toContainText("Falló");
-  await expect(page.getByText("Los hashes son diferentes.")).toBeVisible();
+  await expect(page.getByText("Los hashes son diferentes.").first()).toBeVisible();
 });

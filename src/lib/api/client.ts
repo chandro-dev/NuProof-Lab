@@ -42,22 +42,62 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
+let sessionTransactions: Transaction[] = [];
+let sessionAuditEvents: AuditEvent[] = [];
+
 export async function createTransaction(input: CreateTransactionInput) {
-  return (
-    await request<{ transaction: Transaction }>("/transactions", {
-      method: "POST",
-      body: JSON.stringify(input)
-    })
-  ).transaction;
+  const now = new Date();
+  const transaction: Transaction = {
+    ...input,
+    id: crypto.randomUUID(),
+    senderAlias: "Cuenta demo",
+    status: "SETTLED",
+    createdAt: now,
+    updatedAt: now
+  };
+  sessionTransactions = [transaction, ...sessionTransactions];
+  sessionAuditEvents = [
+    {
+      id: crypto.randomUUID(),
+      eventType: "TRANSACTION_CREATED",
+      transactionId: transaction.id,
+      receiptId: null,
+      createdAt: now,
+      metadata: { mode: "STATELESS" }
+    },
+    ...sessionAuditEvents
+  ];
+  return transaction;
 }
 
-export async function createReceipt(transactionId: string) {
-  return (
+export async function createReceipt(transaction: Transaction) {
+  const receipt = (
     await request<{ receipt: IssuedReceiptView }>(
-      `/transactions/${transactionId}/receipts`,
-      { method: "POST" }
+      `/transactions/${transaction.id}/receipts`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          transaction: {
+            ...transaction,
+            createdAt: transaction.createdAt.toISOString(),
+            updatedAt: transaction.updatedAt.toISOString()
+          }
+        })
+      }
     )
   ).receipt;
+  sessionAuditEvents = [
+    {
+      id: crypto.randomUUID(),
+      eventType: "RECEIPT_ISSUED",
+      transactionId: transaction.id,
+      receiptId: receipt.id,
+      createdAt: new Date(),
+      metadata: { mode: "STATELESS", keyId: receipt.keyId }
+    },
+    ...sessionAuditEvents
+  ];
+  return receipt;
 }
 
 export async function verifyReceipt(receiptId: string, token: string) {
@@ -68,16 +108,21 @@ export async function verifyReceipt(receiptId: string, token: string) {
 }
 
 export async function reverseTransaction(transactionId: string) {
-  return (
-    await request<{ transaction: Transaction }>(`/transactions/${transactionId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "REVERSED" satisfies TransactionStatus })
-    })
-  ).transaction;
+  const current = sessionTransactions.find((transaction) => transaction.id === transactionId);
+  if (!current) throw new Error("La transacción temporal ya no está disponible.");
+  const transaction: Transaction = {
+    ...current,
+    status: "REVERSED" satisfies TransactionStatus,
+    updatedAt: new Date()
+  };
+  sessionTransactions = sessionTransactions.map((candidate) =>
+    candidate.id === transactionId ? transaction : candidate
+  );
+  return transaction;
 }
 
 export async function getTransactions() {
-  return (await request<{ transactions: Transaction[] }>("/transactions")).transactions;
+  return [...sessionTransactions];
 }
 
 export async function getReceipt(receiptId: string) {
@@ -85,11 +130,13 @@ export async function getReceipt(receiptId: string) {
 }
 
 export async function getAuditEvents() {
-  return (await request<{ events: AuditEvent[] }>("/audit")).events;
+  return [...sessionAuditEvents];
 }
 
 export async function resetDemo() {
-  return request<{ reset: true }>("/demo/reset", { method: "POST" });
+  sessionTransactions = [];
+  sessionAuditEvents = [];
+  return { reset: true as const };
 }
 
 export async function verifyTamperedAmount(
@@ -106,14 +153,16 @@ export async function verifyTamperedAmount(
 export async function analyzeReceiptSecurity(
   receiptId: string,
   token: string,
-  presentedAmountMinor?: number
+  presentedAmountMinor?: number,
+  currentStatus?: TransactionStatus
 ) {
   return request<SecurityLabAnalysis>("/security-lab/analyze", {
     method: "POST",
     body: JSON.stringify({
       receiptId,
       token,
-      ...(presentedAmountMinor === undefined ? {} : { presentedAmountMinor })
+      ...(presentedAmountMinor === undefined ? {} : { presentedAmountMinor }),
+      ...(currentStatus === undefined ? {} : { currentStatus })
     })
   });
 }

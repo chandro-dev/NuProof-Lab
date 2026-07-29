@@ -78,7 +78,7 @@ export function IssuerSimulator() {
     setLoading(true);
     setError("");
     try {
-      const receipt = await createReceipt(created.id);
+      const receipt = await createReceipt(created);
       router.push(
         `/receipt/${receipt.id}#token=${encodeURIComponent(receipt.verificationToken ?? "")}`
       );
@@ -109,7 +109,7 @@ export function IssuerSimulator() {
         <div className="border-t-4 border-brand bg-white pt-5">
           <h2 className="text-xl font-bold">Crear transferencia ficticia</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            El monto visible está en pesos COP; el backend recibe y guarda centavos como minor units.
+            El monto se representa en centavos y los datos permanecen solo durante esta sesión.
           </p>
         </div>
         <form className="mt-6 space-y-5" onSubmit={(event) => void submit(event)}>
@@ -175,7 +175,7 @@ export function IssuerSimulator() {
         <div className="mt-8 flex items-center justify-between border-b border-line pb-3">
           <div>
             <h2 className="text-xl font-bold">Transacciones</h2>
-            <p className="mt-1 text-sm text-muted">{transactions.length} registros recientes</p>
+            <p className="mt-1 text-sm text-muted">{transactions.length} registros de esta sesión</p>
           </div>
           <button
             type="button"

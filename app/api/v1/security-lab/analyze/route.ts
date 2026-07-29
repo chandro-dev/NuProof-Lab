@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getContainer } from "@/src/infrastructure/container";
+import { getStatelessReceiptService } from "@/src/infrastructure/stateless";
 import { analyzeReceiptSchema } from "@/src/types/contracts";
 import {
   handleHttpError,
@@ -16,10 +16,14 @@ export async function POST(request: NextRequest) {
   const id = requestId(request);
   try {
     requireDemoAccess(request);
-    const { presentedAmountMinor, ...input } = analyzeReceiptSchema.parse(
+    const { presentedAmountMinor, currentStatus, ...input } = analyzeReceiptSchema.parse(
       await parseJson(request)
     );
-    const result = await getContainer().verification.analyze(input, presentedAmountMinor);
+    const result = await getStatelessReceiptService().analyze(
+      input,
+      presentedAmountMinor,
+      currentStatus
+    );
     return json(result, 200, id);
   } catch (error) {
     return handleHttpError(error, id);

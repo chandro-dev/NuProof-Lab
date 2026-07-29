@@ -1,11 +1,14 @@
 import type { NextRequest } from "next/server";
-import { getContainer } from "@/src/infrastructure/container";
+import { getStatelessReceiptService } from "@/src/infrastructure/stateless";
 import { logger } from "@/src/infrastructure/observability/logger";
+import { InMemoryRateLimitService } from "@/src/infrastructure/security/rate-limit";
 import { verifyReceiptSchema } from "@/src/types/contracts";
 import { handleHttpError, json, parseJson, requestId } from "@/src/lib/http/handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const verifyRateLimit = new InMemoryRateLimitService();
 
 export async function POST(request: NextRequest) {
   const id = requestId(request);
@@ -14,7 +17,7 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       request.headers.get("x-real-ip") ??
       "unknown";
-    const limiter = await getContainer().verifyRateLimit.consume(client);
+    const limiter = await verifyRateLimit.consume(client);
     const rateHeaders = {
       "RateLimit-Limit": String(limiter.limit),
       "RateLimit-Remaining": String(limiter.remaining)
@@ -29,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const input = verifyReceiptSchema.parse(await parseJson(request));
-    const result = await getContainer().verification.verify(input);
+    const result = await getStatelessReceiptService().verify(input);
     logger.info(result.authentic ? "verification_success" : "verification_failure", {
       requestId: id,
       verificationId: result.verificationId,

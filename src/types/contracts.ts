@@ -2,7 +2,7 @@ import { z } from "zod";
 import { transactionStatuses } from "@/src/domain/model";
 
 export const uuidSchema = z.uuid();
-export const verificationTokenSchema = z.string().min(32).max(200);
+export const verificationTokenSchema = z.string().min(32).max(8_192);
 export const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50)
 });
@@ -40,12 +40,30 @@ export const analyzeReceiptSchema = z
   .object({
     receiptId: uuidSchema,
     token: verificationTokenSchema,
-    presentedAmountMinor: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional()
+    presentedAmountMinor: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+    currentStatus: z.enum(transactionStatuses).optional()
   })
   .strict();
 
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
 export type VerifyReceiptInput = z.infer<typeof verifyReceiptSchema>;
+
+export const statelessIssueSchema = z
+  .object({
+    transaction: z.object({
+      id: uuidSchema,
+      amountMinor: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+      currency: z.literal("COP"),
+      senderAlias: z.string().min(1).max(80),
+      recipientAlias: z.string().min(2).max(80),
+      destinationMasked: z.string().regex(/^\*{4}\s?\d{4}$/),
+      reference: z.string().min(1).max(120),
+      status: z.enum(transactionStatuses),
+      createdAt: z.iso.datetime(),
+      updatedAt: z.iso.datetime()
+    })
+  })
+  .strict();
 
 export interface IssuedReceiptView {
   id: string;

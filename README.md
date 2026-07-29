@@ -27,17 +27,15 @@ Versioned verification API
 Authenticity + historical status + current status
 ```
 
-NuProof keeps the signed state at issuance separate from the current transaction
-state. A later reversal therefore returns an authentic receipt with
-`statusAtIssuance=SETTLED` and `currentStatus=REVERSED`.
+This PoC is stateless. The QR transports a self-contained signed envelope and
+the API verifies it without storing transactions or receipts. A reversal in the
+Security Lab is a browser-session simulation and disappears on reload.
 
 ## Tech stack
 
 - Next.js 16 App Router, React 19 and strict TypeScript
 - Tailwind CSS 4
-- PostgreSQL 17 and Drizzle ORM
 - Ed25519 signatures and SHA-256 payload hashes
-- HMAC-SHA-256 verification-token digests
 - Zod HTTP validation, Vitest and Playwright
 
 ## Architecture
@@ -48,10 +46,9 @@ flowchart TD
   HTTP --> App[Application Services]
   App --> Domain[Domain Models and Ports]
   App --> Crypto[SigningProvider / PublicKeyRegistry]
-  App --> Repos[Repository Interfaces]
   Crypto --> Env[Server-only environment secrets]
-  Repos --> Drizzle[Drizzle adapters]
-  Drizzle --> PG[(PostgreSQL)]
+  Browser --> Session[Ephemeral tab memory]
+  QR[Signed QR envelope] --> HTTP
 ```
 
 The UI and API currently deploy together as one Next.js application. Business
@@ -60,20 +57,17 @@ logic does not live in React or Route Handlers, so `src/domain`,
 
 ## Local development
 
-Requirements: Node.js 22, npm and Docker Desktop.
+Requirements: Node.js 22 and npm.
 
 ```bash
 npm install
-docker compose up -d
 npm run keys:generate
 ```
 
-Create `.env.local` from `.env.example`, then copy the four generated
+Create `.env.local` from `.env.example`, then copy the three generated
 `NUPROOF_*` lines from `.env.keys`. Do not commit either file.
 
 ```bash
-npm run db:migrate
-npm run db:seed
 npm run dev
 ```
 
@@ -89,13 +83,12 @@ formats values; financial values are never calculated with floating point.
 ## Security model
 
 - The server builds a versioned canonical receipt payload.
-- SHA-256 detects stored-payload changes and Ed25519 proves issuer signing.
+- SHA-256 detects payload changes and Ed25519 proves issuer signing.
 - The private PKCS#8 key is server-only and never enters HTML, JSON, QR or client
   JavaScript.
-- PostgreSQL stores only an HMAC digest of the random 256-bit verification token.
 - A receipt stores `keyId`; the public registry can retain multiple rotated keys.
-- The QR contains only a bearer verification URL, not complete banking data.
-  Its token is placed after `#`, so it is not included in HTTP access logs.
+- The QR contains a signed evidence envelope after `#`, so it is not included
+  in HTTP access logs.
 - Public verification responses follow data minimization.
 
 See [CRYPTOGRAPHY.md](docs/CRYPTOGRAPHY.md) and
@@ -111,8 +104,8 @@ See [CRYPTOGRAPHY.md](docs/CRYPTOGRAPHY.md) and
 - invalid verification token;
 - transaction reversal.
 
-The security test suite also mutates the persisted receipt amount and proves that
-verification returns `INVALID_SIGNATURE`.
+The Security Lab presents a modified amount and proves that verification returns
+`INVALID_SIGNATURE`.
 
 ## Testing
 
@@ -124,8 +117,8 @@ npm run build
 npm run test:e2e
 ```
 
-`tests/unit`, `tests/integration` and `tests/security` run without a shared
-database. Playwright requires the local PostgreSQL setup.
+The PoC does not require a database. Transaction history and audit events exist
+only in the current browser module session and disappear on reload or redeploy.
 
 ## Vercel deployment
 
@@ -135,12 +128,9 @@ Create one Vercel project at the repository root with framework preset
 
 Set these server environment variables:
 
-- `DATABASE_URL`: managed PostgreSQL URL, including the provider-required TLS
-  mode such as `sslmode=require`;
 - `NUPROOF_PRIVATE_KEY`: base64 PKCS#8 private key;
 - `NUPROOF_PUBLIC_KEYS_JSON`: JSON public-key registry;
 - `NUPROOF_KEY_ID`: active signing key ID;
-- `NUPROOF_TOKEN_PEPPER`: random secret of at least 32 characters;
 - `APP_URL`: canonical HTTPS deployment URL;
 - `DEMO_MODE`: `true` only for this public PoC;
 - `INTERNAL_API_KEY`: random issuer API credential for non-browser clients.
@@ -150,13 +140,4 @@ application uses `VERCEL_PROJECT_PRODUCTION_URL` as the canonical QR origin and
 the current deployment host for same-origin Preview requests. Configure
 `DEMO_MODE=true` for every Vercel environment where `/issuer` and
 `/security-lab` must be interactive; environment changes require a new
-deployment.
-
-Apply migrations explicitly against the managed database before deployment:
-
-```bash
-DATABASE_URL="..." npm run db:migrate
-DATABASE_URL="..." npm run db:seed
-```
-
-The Vercel build never runs migrations, seeds data or generates keys.
+deployment. No `DATABASE_URL`, migration or database integration is required.

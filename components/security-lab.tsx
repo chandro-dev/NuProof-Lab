@@ -77,19 +77,19 @@ const scenarioDetails = [
 
 const checkExplanations: Record<SecurityCheckId, string> = {
   RECEIPT_LOOKUP:
-    "Confirma que el UUID corresponde a un comprobante emitido. No se usan identificadores secuenciales.",
+    "Confirma que el UUID de la URL corresponde al UUID incluido dentro del sobre firmado.",
   TOKEN:
-    "Compara HMAC-SHA-256(token) contra el digest almacenado usando buffers de longitud fija.",
+    "Decodifica y valida la estructura del sobre autocontenido transportado por el QR.",
   CANONICALIZATION:
     "Ordena las claves y transforma el payload en bytes UTF-8 deterministas. Un mismo payload produce los mismos bytes.",
   HASH:
-    "Calcula SHA-256 sobre el payload canónico y lo compara con el hash registrado al emitir.",
+    "Calcula SHA-256 sobre el payload canónico y lo compara con el hash incluido al emitir.",
   PUBLIC_KEY:
     "Resuelve keyId en el registro de claves públicas para soportar rotación sin usar la clave privada.",
   SIGNATURE:
     "Ed25519 verifica que la firma fue creada por el emisor para esos bytes exactos.",
   CURRENT_STATUS:
-    "Consulta la transacción mutable sin alterar el estado histórico protegido por la firma."
+    "Compara el estado firmado con una reversión temporal simulada en esta pestaña."
 };
 
 const stateStyle: Record<SecurityCheckState, string> = {
@@ -142,10 +142,12 @@ export function SecurityLab() {
         destinationMasked: "****5832",
         reference: "Prueba Security Lab"
       });
-      const issued = await createReceipt(created.id);
+      const issued = await createReceipt(created);
       const trace = await analyzeReceiptSecurity(
         issued.id,
-        issued.verificationToken as string
+        issued.verificationToken as string,
+        undefined,
+        created.status
       );
       setTransaction(created);
       setReceipt(issued);
@@ -168,6 +170,7 @@ export function SecurityLab() {
       let receiptId = receipt.id;
       let token = receipt.verificationToken;
       let presentedAmount: number | undefined;
+      let currentStatus = transaction.status;
       if (nextScenario === "tamper") presentedAmount = 250_000_000;
       if (nextScenario === "unknown") {
         receiptId = "11111111-1111-4111-8111-111111111111";
@@ -176,8 +179,14 @@ export function SecurityLab() {
       if (nextScenario === "reverse") {
         const updated = await reverseTransaction(transaction.id);
         setTransaction(updated);
+        currentStatus = updated.status;
       }
-      const trace = await analyzeReceiptSecurity(receiptId, token, presentedAmount);
+      const trace = await analyzeReceiptSecurity(
+        receiptId,
+        token,
+        presentedAmount,
+        currentStatus
+      );
       setScenario(nextScenario);
       setAnalysis(trace);
       setSelectedCheck(
@@ -334,7 +343,7 @@ export function SecurityLab() {
                 <h2 className="mt-1 text-2xl font-bold">{analysis.result}</h2>
                 <p className="mt-2 text-sm leading-6 text-muted">
                   {scenario === "copy"
-                    ? "El QR y la firma son auténticos, pero validan el registro original del emisor."
+                    ? "El QR y la firma son auténticos, pero validan los datos originales incluidos en el sobre."
                     : isInvalid
                       ? "La cadena de confianza se detuvo. Las etapas posteriores no pueden compensar el fallo."
                       : isReversed
@@ -356,7 +365,7 @@ export function SecurityLab() {
                 <X className="mr-2" size={20} /> No coincide
               </div>
               <div className="bg-surface p-5">
-                <p className="text-xs font-bold uppercase text-success">Registro del emisor</p>
+                <p className="text-xs font-bold uppercase text-success">Contenido firmado</p>
                 <p className="mt-2 text-3xl font-bold">
                   {formatMoney(analysis.receipt.amountMinor)}
                 </p>
@@ -476,7 +485,7 @@ export function SecurityLab() {
                     </div>
                     <div className="mt-5 grid gap-5 lg:grid-cols-2">
                       <div>
-                        <p className="text-xs font-bold uppercase text-muted">Hash almacenado</p>
+                        <p className="text-xs font-bold uppercase text-muted">Hash incluido</p>
                         <ArtifactValue>{analysis.artifacts.storedHash}</ArtifactValue>
                       </div>
                       <div>
@@ -538,7 +547,7 @@ export function SecurityLab() {
                         <p className={`mt-3 text-2xl font-bold ${isReversed ? "text-warning" : "text-success"}`}>
                           {statusLabel(analysis.transaction.currentStatus)}
                         </p>
-                        <p className="mt-2 text-sm text-muted">Consultado en la transacción mutable.</p>
+                        <p className="mt-2 text-sm text-muted">Simulado solo durante esta sesión.</p>
                       </div>
                     </div>
                   </div>
