@@ -11,7 +11,7 @@ function parseVerificationValue(value: string): { receiptId: string; token: stri
   try {
     const url = new URL(trimmed, window.location.origin);
     const match = url.pathname.match(/^\/verify\/([0-9a-f-]{36})$/i);
-    const token = url.searchParams.get("token");
+    const token = new URLSearchParams(url.hash.slice(1)).get("token");
     if (match?.[1] && token) return { receiptId: match[1], token };
   } catch {
     // The compact fallback below handles non-URL input.
@@ -33,7 +33,7 @@ export function VerifyEntry({ startCamera = false }: { startCamera?: boolean }) 
     try {
       const parsed = parseVerificationValue(value);
       stopCamera();
-      router.push(`/verify/${parsed.receiptId}?token=${encodeURIComponent(parsed.token)}`);
+      router.push(`/verify/${parsed.receiptId}#token=${encodeURIComponent(parsed.token)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Código inválido.");
     }
@@ -124,7 +124,7 @@ export function VerifyEntry({ startCamera = false }: { startCamera?: boolean }) 
             label="Código de verificación"
             value={code}
             onChange={(event) => setCode(event.target.value)}
-            placeholder="https://…/verify/…?token=…"
+            placeholder="https://…/verify/…#token=…"
             autoComplete="off"
           />
           <Button

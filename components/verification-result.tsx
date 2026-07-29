@@ -6,15 +6,15 @@ import { AlertTriangle, Check, LoaderCircle, RotateCcw, ShieldX, X } from "lucid
 import type { VerificationResult as Result } from "@/src/types/contracts";
 import { verifyReceipt } from "@/src/lib/api/client";
 import { formatDate, formatMoney, statusLabel } from "@/src/lib/format";
+import { useFragmentToken } from "@/src/lib/use-fragment-token";
 import { ErrorNotice } from "./ui";
 
 export function VerificationResult({
-  receiptId,
-  token
+  receiptId
 }: {
   receiptId: string;
-  token: string | undefined;
 }) {
+  const token = useFragmentToken();
   const [result, setResult] = useState<Result>();
   const [error, setError] = useState("");
 
@@ -43,7 +43,14 @@ export function VerificationResult({
       });
   }, [receiptId, token]);
 
-  if (!token) return <ErrorNotice>Falta el token de verificación.</ErrorNotice>;
+  if (token === undefined) {
+    return (
+      <div className="flex min-h-80 items-center justify-center gap-3 text-muted">
+        <LoaderCircle className="animate-spin text-brand" /> Cargando código de verificación…
+      </div>
+    );
+  }
+  if (token === null) return <ErrorNotice>Falta el token de verificación.</ErrorNotice>;
   if (error) return <ErrorNotice>{error}</ErrorNotice>;
   if (!result) {
     return (

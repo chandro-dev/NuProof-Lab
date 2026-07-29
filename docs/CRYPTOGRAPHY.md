@@ -31,6 +31,7 @@ remain resolvable after rotation.
 ## Verification tokens
 
 Tokens contain 256 random bits. The public token appears only in the issuance
-response and verification URL. PostgreSQL stores
+response and the URL fragment (`#token=...`), which browsers do not send in GET
+requests or access logs. PostgreSQL stores
 `HMAC-SHA-256(serverPepper, token)` and comparison uses fixed-size,
 constant-time buffers.

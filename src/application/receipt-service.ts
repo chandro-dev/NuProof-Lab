@@ -1,5 +1,10 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { InvalidTransactionStateError, ReceiptAlreadyIssuedError } from "@/src/domain/errors";
+import {
+  InvalidTransactionStateError,
+  ReceiptAlreadyIssuedError,
+  ReceiptNotFoundError,
+  TransactionNotFoundError
+} from "@/src/domain/errors";
 import { buildReceiptPayload, type Receipt } from "@/src/domain/model";
 import type {
   AuditWriter,
@@ -23,10 +28,7 @@ export class ReceiptService {
 
   public async issue(transactionId: string, now = new Date()): Promise<IssuedReceiptView> {
     const transaction = await this.transactions.findById(transactionId);
-    if (!transaction) {
-      const { TransactionNotFoundError } = await import("@/src/domain/errors");
-      throw new TransactionNotFoundError();
-    }
+    if (!transaction) throw new TransactionNotFoundError();
     if (transaction.status !== "SETTLED") {
       throw new InvalidTransactionStateError("Receipts can only be issued for settled transactions.");
     }
@@ -76,10 +78,7 @@ export class ReceiptService {
 
   public async getById(id: string) {
     const receipt = await this.receipts.findById(id);
-    if (!receipt) {
-      const { ReceiptNotFoundError } = await import("@/src/domain/errors");
-      throw new ReceiptNotFoundError();
-    }
+    if (!receipt) throw new ReceiptNotFoundError();
     const transaction = await this.transactions.findById(receipt.transactionId);
     if (!transaction) throw new Error("Receipt references a missing transaction");
     return this.toView(receipt, transaction.recipientAlias, transaction.status);
@@ -113,7 +112,7 @@ export class ReceiptService {
     };
     if (token) {
       view.verificationToken = token;
-      view.verificationUrl = `${this.appUrl}/verify/${receipt.id}?token=${encodeURIComponent(token)}`;
+      view.verificationUrl = `${this.appUrl}/verify/${receipt.id}#token=${encodeURIComponent(token)}`;
     }
     return view;
   }

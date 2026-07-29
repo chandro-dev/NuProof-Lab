@@ -95,6 +95,7 @@ formats values; financial values are never calculated with floating point.
 - PostgreSQL stores only an HMAC digest of the random 256-bit verification token.
 - A receipt stores `keyId`; the public registry can retain multiple rotated keys.
 - The QR contains only a bearer verification URL, not complete banking data.
+  Its token is placed after `#`, so it is not included in HTTP access logs.
 - Public verification responses follow data minimization.
 
 See [CRYPTOGRAPHY.md](docs/CRYPTOGRAPHY.md) and

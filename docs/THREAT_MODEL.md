@@ -9,7 +9,7 @@ URLs and issuer demo. STRIDE categories are shown in parentheses.
 | Copied QR (S/T) | Valid QR is pasted on another document | Authentic QR lends false visual credibility | Verifier displays authoritative issuer data, never trusts surrounding document | Social engineering remains |
 | Invented receipt ID (S) | Random UUID is submitted | Enumeration or false existence claims | Random UUIDs, generic `NOT_FOUND`, rate limiting | UUID/token leakage can enable targeted probes |
 | Enumeration (I) | Automated requests test identifiers | Receipt existence disclosure | 128-bit IDs, bearer token, uniform minimized failures, rate limits | Process-local PoC limiter is weak across instances |
-| Leaked verification token (I) | URL is copied, logged or shared | Anyone with URL can verify minimized data | `no-referrer`, no token logs, token HMAC at rest, robots disabled | Browser history and recipient sharing |
+| Leaked verification token (I) | URL is copied or shared | Anyone with URL can verify minimized data | URL fragment keeps token out of HTTP logs, `no-referrer`, token HMAC at rest, robots disabled | Browser history and recipient sharing |
 | Private key compromise (S/E) | Environment or host secret is stolen | Forged issuer receipts | Server-only boundary, ignored files, rotation-ready keyId; production KMS/HSM | Environment provider uses exportable PoC key |
 | Replay (R) | Same verification URL is used repeatedly | Traffic abuse or correlation | Idempotent read, rate limits, audit events | Token intentionally remains valid for receipt lifetime |
 | API brute force (D) | High-rate token/UUID attempts | Availability loss | Body limits, Zod, `RateLimitService`, WAF recommended | In-memory limits reset and are per instance |

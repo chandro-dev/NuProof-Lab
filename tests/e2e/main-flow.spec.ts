@@ -5,7 +5,7 @@ test("issuer creates, issues and verifies a receipt", async ({ page }) => {
   await page.getByRole("button", { name: "Crear transferencia" }).click();
   await expect(page.getByText("Transferencia realizada")).toBeVisible();
   await page.getByRole("button", { name: "Generar comprobante" }).click();
-  await expect(page).toHaveURL(/\/receipt\/[0-9a-f-]+\?token=/);
+  await expect(page).toHaveURL(/\/receipt\/[0-9a-f-]+#token=/);
   await expect(page.getByText("Protegido mediante firma digital")).toBeVisible();
   await page.getByRole("link", { name: "Verificar ahora" }).click();
   await expect(page.getByRole("heading", { name: "COMPROBANTE AUTÉNTICO" })).toBeVisible();
@@ -39,7 +39,7 @@ test("an authentic receipt shows its later reversal", async ({ page, request }) 
     data: { status: "REVERSED" }
   });
 
-  await page.goto(`/verify/${receipt.id}?token=${encodeURIComponent(receipt.verificationToken)}`);
+  await page.goto(`/verify/${receipt.id}#token=${encodeURIComponent(receipt.verificationToken)}`);
   await expect(page.getByRole("heading", { name: "COMPROBANTE AUTÉNTICO" })).toBeVisible();
   await expect(page.getByText("Reversada", { exact: true })).toBeVisible();
   await expect(page.getByText("Completada", { exact: true })).toBeVisible();

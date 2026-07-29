@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check, LockKeyhole, ShieldCheck } from "lucide-react";
 import { Container, StatusPill } from "@/components/ui";
-import { ReceiptQr } from "@/components/receipt-qr";
+import { ReceiptVerificationAccess } from "@/components/receipt-verification-access";
 import { getContainer } from "@/src/infrastructure/container";
 import { formatDate, formatMoney } from "@/src/lib/format";
 
@@ -14,18 +14,13 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ReceiptPage({
-  params,
-  searchParams
+  params
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ token?: string }>;
 }) {
   const { id } = await params;
-  const { token } = await searchParams;
   const receipt = await getContainer().receipts.getById(id);
-  const verificationUrl = token
-    ? `${(process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/verify/${id}?token=${encodeURIComponent(token)}`
-    : "";
+  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
   return (
     <Container className="max-w-4xl py-10 sm:py-14">
@@ -53,16 +48,7 @@ export default async function ReceiptPage({
           ))}
         </dl>
         <div className="flex flex-col items-center justify-center border-t border-line bg-surface p-6 text-center lg:border-l lg:border-t-0">
-          {verificationUrl ? (
-            <>
-              <ReceiptQr value={verificationUrl} />
-              <p className="mt-3 text-sm text-muted">Escanea para verificar este comprobante.</p>
-            </>
-          ) : (
-            <p className="text-sm leading-6 text-warning">
-              El token solo se entrega al emitir. Vuelve a generar la demostración para mostrar un QR.
-            </p>
-          )}
+          <ReceiptVerificationAccess receiptId={id} appUrl={appUrl} />
         </div>
       </div>
 
@@ -74,14 +60,6 @@ export default async function ReceiptPage({
           <ShieldCheck size={18} /> Ver detalles de seguridad
         </Link>
       </div>
-      {verificationUrl ? (
-        <Link
-          href={`/verify/${id}?token=${encodeURIComponent(token!)}`}
-          className="mt-5 flex min-h-12 w-full items-center justify-center rounded-md bg-brand px-5 font-bold text-white"
-        >
-          Verificar ahora
-        </Link>
-      ) : null}
     </Container>
   );
 }

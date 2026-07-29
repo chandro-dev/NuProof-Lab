@@ -9,17 +9,14 @@ export const metadata: Metadata = {
 };
 
 export default async function VerificationResultPage({
-  params,
-  searchParams
+  params
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ token?: string }>;
 }) {
   const { id } = await params;
-  const { token } = await searchParams;
   return (
     <Container className="min-h-[calc(100vh-8rem)] max-w-4xl py-10 sm:py-14">
-      <VerificationResult receiptId={id} token={token} />
+      <VerificationResult receiptId={id} />
     </Container>
   );
 }

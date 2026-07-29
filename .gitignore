@@ -10,4 +10,5 @@ test-results/
 keys/
 coverage/
 *.log
+*.tsbuildinfo
 .DS_Store

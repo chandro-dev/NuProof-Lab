@@ -80,7 +80,7 @@ export function IssuerSimulator() {
     try {
       const receipt = await createReceipt(created.id);
       router.push(
-        `/receipt/${receipt.id}?token=${encodeURIComponent(receipt.verificationToken ?? "")}`
+        `/receipt/${receipt.id}#token=${encodeURIComponent(receipt.verificationToken ?? "")}`
       );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No fue posible emitir el comprobante.");
