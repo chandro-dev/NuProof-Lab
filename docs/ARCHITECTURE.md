@@ -1,92 +1,55 @@
-# Arquitectura de NuProof Lab
+# Architecture
 
-NuProof Lab es una prueba de concepto independiente y no afiliada a Nu. Todos los
-datos son ficticios. El sistema se ejecuta localmente y separa la experiencia
-móvil de la autoridad que firma.
+NuProof Lab is a modular monolith inside one Next.js deployment.
 
-## Límites del sistema
-
-```mermaid
-flowchart LR
-  M[Expo mobile] -->|REST, receiptId + token| A[Local API]
-  A --> T[Transaction service]
-  A --> V[Verification service]
-  T --> R[Receipt service]
-  R --> S[Signing service]
-  S --> K[(Ed25519 private key)]
-  T --> D[(SQLite)]
-  V --> D
-  V --> P[(Public key)]
+```text
+Browser
+  -> app/components (presentation)
+  -> src/lib/api (HTTP client)
+  -> app/api/v1 (HTTP adapters)
+  -> src/application (use cases)
+  -> src/domain (models, rules, ports)
+  -> src/infrastructure (PostgreSQL, crypto, logging, rate limiting)
 ```
 
-La clave privada solo existe en `apps/server/data/keys`, ignorada por Git. El
-móvil jamás recibe esa clave. La API pública expone únicamente la clave pública.
+## Dependency rules
 
-## Modelo de datos
+- Domain and application code never import React or Route Handlers.
+- Route Handlers validate/authorize input, call one service and map the response.
+- SQL exists only in Drizzle infrastructure.
+- `DATABASE_URL`, signing providers and private material are imported only by
+  modules marked `server-only`.
+- Client components are limited to forms, scanner, runtime QR and interactive
+  results.
 
-- `transactions`: identidad, importe entero en COP, alias ficticios, destino
-  enmascarado, estado actual y marcas de tiempo.
-- `receipts`: snapshot histórico firmado. Contiene el estado al emitir, firma,
-  hash, `keyId` y token de verificación. No se reescribe cuando cambia el estado.
-- `audit_events`: eventos operativos sin secretos.
+## Core flows
 
-Los IDs públicos son UUID aleatorios. El token contiene 256 bits aleatorios,
-codificados Base64URL. Los importes usan enteros, nunca punto flotante.
+### Transaction
 
-## Flujo criptográfico
+`POST /api/v1/transactions` validates integer minor units. The backend owns the
+UUID, sender alias, timestamps and initial settled state.
 
-1. Se valida la entrada con un esquema estricto.
-2. Se crea un payload explícito con tipos y campos conocidos.
-3. `canonicalizePayload` ordena recursivamente las claves y serializa JSON sin
-   espacios. Strings, enteros, booleanos, `null`, arrays y objetos planos son los
-   únicos valores aceptados.
-4. Se calcula SHA-256 sobre bytes UTF-8 del JSON canónico.
-5. Se firma el mismo JSON canónico con Ed25519.
-6. Firma y hash se transportan en Base64URL y hexadecimal, respectivamente.
+### Receipt
 
-El hash es una ayuda de inspección; la autenticidad depende de Ed25519.
+`POST /api/v1/transactions/:id/receipts` snapshots protected transaction fields,
+generates a random token, hashes the token with a server pepper, canonicalizes
+the receipt, hashes it, signs it and persists the immutable receipt.
 
-## QR portable v2
+### Verification
 
-El QR v2 contiene el payload canónico enmascarado, firma, hash, `keyId` y token.
-La app conserva una clave pública de confianza por `keyId` y verifica
-localmente SHA-256 y Ed25519. La clave incluida por un atacante nunca se acepta
-como raíz de confianza.
+`POST /api/v1/verify` rate limits the caller, resolves the receipt, compares the
+token digest in constant time, rebuilds the signed payload, verifies SHA-256 and
+Ed25519, loads current transaction state and audits the result.
 
-La consulta a `/api/verify` es posterior y opcional. Si falla, la aplicación
-distingue entre autenticidad documental verificada y estado operativo no
-disponible. Si responde, el estado actual puede reemplazar al estado emitido.
-Los QR v1 con solo `receiptId + token` se mantienen compatibles, pero requieren
-la API.
+## Persistence
 
-## Estado histórico y actual
+The Drizzle schema contains `transactions`, `receipts` and `audit_events`.
+Receipt payload fields are duplicated intentionally: they are the signed
+historical snapshot and must not be reconstructed from mutable transaction
+fields.
 
-`issuedStatus` forma parte del payload firmado e inmutable. `transactions.status`
-representa la realidad actual. Una reversión modifica solo este último valor y
-crea un evento de auditoría. Así, un comprobante puede ser auténtico y a la vez
-corresponder a una operación actualmente reversada.
+## Deployment
 
-## Endpoints
-
-| Método | Ruta | Propósito |
-| --- | --- | --- |
-| `GET` | `/api/health` | Estado del servidor |
-| `GET` | `/api/security/public-key` | Clave pública y `keyId` |
-| `GET` | `/api/transactions` | Lista ficticia para la app |
-| `POST` | `/api/transactions` | Crear, firmar y persistir |
-| `GET` | `/api/transactions/:id` | Comprobante completo para el emisor |
-| `POST` | `/api/verify` | Verificación pública minimizada |
-| `POST` | `/api/transactions/:id/reverse` | Simulación interna de reversión |
-| `GET` | `/api/audit` | Auditoría local para demo |
-| `POST` | `/api/demo/reset` | Restaurar fixtures sin regenerar claves |
-
-## Controles y límites de la PoC
-
-- El rate limiter de proceso protege `/api/verify`; producción requiere control
-  distribuido en gateway/WAF.
-- Los roles del simulador no tienen autenticación en esta demo local. Producción
-  exige identidad fuerte, autorización y red interna.
-- SQLite y archivos PEM sirven para demostrar el concepto. Producción requiere
-  almacenamiento transaccional endurecido, HSM/KMS y auditoría inmutable.
-- El token reduce enumeración, pero quien obtiene el QR puede consultar el
-  comprobante minimizado. Es un bearer secret y debe tratarse como tal.
+The web application and API deploy together on Vercel. PostgreSQL and
+environment-managed secrets are external managed resources. Build and runtime
+are separate: no database connection or secret is required by `next build`.

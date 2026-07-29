@@ -1,0 +1,199 @@
+openapi: 3.1.0
+info:
+  title: NuProof Lab API
+  version: 1.0.0
+  description: Versioned API for the NuProof Lab independent Proof of Concept.
+servers:
+  - url: /api/v1
+tags:
+  - name: Public
+  - name: Issuer
+    description: Demo/internal operations; not a public financial API.
+paths:
+  /health:
+    get:
+      tags: [Public]
+      operationId: health
+      responses:
+        "200":
+          description: Service is running
+  /verify:
+    post:
+      tags: [Public]
+      operationId: verifyReceipt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyRequest"
+      responses:
+        "200":
+          description: Stable verification result, including expected failures
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+  /security/public-keys:
+    get:
+      tags: [Public]
+      operationId: listPublicKeys
+      responses:
+        "200":
+          description: Public Ed25519 registry
+  /transactions:
+    get:
+      tags: [Issuer]
+      operationId: listTransactions
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200": { description: Transaction list }
+    post:
+      tags: [Issuer]
+      operationId: createTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransaction"
+      responses:
+        "201": { description: Transaction created }
+        "400":
+          $ref: "#/components/responses/Error"
+  /transactions/{id}:
+    get:
+      tags: [Issuer]
+      operationId: getTransaction
+      parameters:
+        - $ref: "#/components/parameters/UuidPath"
+      responses:
+        "200": { description: Transaction and optional receipt }
+        "404":
+          $ref: "#/components/responses/Error"
+  /transactions/{id}/receipts:
+    post:
+      tags: [Issuer]
+      operationId: issueReceipt
+      parameters:
+        - $ref: "#/components/parameters/UuidPath"
+      responses:
+        "201":
+          description: Receipt issued; verification token is returned only here
+        "409":
+          $ref: "#/components/responses/Error"
+  /transactions/{id}/status:
+    patch:
+      tags: [Issuer]
+      operationId: updateTransactionStatus
+      parameters:
+        - $ref: "#/components/parameters/UuidPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  enum: [PENDING, SETTLED, REVERSED, CANCELLED]
+      responses:
+        "200": { description: Updated transaction }
+        "409":
+          $ref: "#/components/responses/Error"
+  /receipts/{id}:
+    get:
+      tags: [Issuer]
+      operationId: getReceipt
+      parameters:
+        - $ref: "#/components/parameters/UuidPath"
+      responses:
+        "200": { description: Receipt without verification token }
+        "404":
+          $ref: "#/components/responses/Error"
+  /audit:
+    get:
+      tags: [Issuer]
+      operationId: listAuditEvents
+      responses:
+        "200": { description: Sanitized audit events }
+  /demo/reset:
+    post:
+      tags: [Issuer]
+      operationId: resetDemo
+      responses:
+        "200": { description: Fictitious data restored }
+        "403":
+          $ref: "#/components/responses/Error"
+components:
+  parameters:
+    UuidPath:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Error:
+      description: Consistent error response
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+  schemas:
+    CreateTransaction:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, currency, recipientAlias, destinationMasked, reference]
+      properties:
+        amountMinor: { type: integer, minimum: 1 }
+        currency: { const: COP }
+        recipientAlias: { type: string, minLength: 2, maxLength: 80 }
+        destinationMasked: { type: string, pattern: '^\*{4}\s?\d{4}$' }
+        reference: { type: string, minLength: 1, maxLength: 120 }
+    VerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [receiptId, token]
+      properties:
+        receiptId: { type: string, format: uuid }
+        token: { type: string, minLength: 32, maxLength: 200 }
+    VerificationResult:
+      type: object
+      required: [result, authentic, signatureValid, integrityValid, verificationId]
+      properties:
+        result:
+          enum: [VERIFIED, VERIFIED_REVERSED, NOT_FOUND, INVALID_VERIFICATION_TOKEN, INVALID_SIGNATURE]
+        authentic: { type: boolean }
+        signatureValid: { type: boolean }
+        integrityValid: { type: boolean }
+        verificationId: { type: string, format: uuid }
+        receipt:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            amountMinor: { type: integer }
+            currency: { const: COP }
+            destinationMasked: { type: string }
+            issuedAt: { type: string, format: date-time }
+            statusAtIssuance: { type: string }
+        transaction:
+          type: object
+          properties:
+            currentStatus: { type: string }

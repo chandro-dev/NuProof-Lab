@@ -8,9 +8,6 @@ test-results/
 .env.*
 !.env.example
 keys/
-apps/server/data/*.sqlite
-apps/server/data/*.sqlite-*
-apps/server/data/keys/
 coverage/
 *.log
 .DS_Store

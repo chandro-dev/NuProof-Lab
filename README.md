@@ -1,200 +1,154 @@
 # NuProof Lab
 
-**Proof of Concept independiente. No afiliado a Nu.** Todos los nombres,
-operaciones y cuentas enmascaradas son ficticios. No use información bancaria
-real.
+NuProof Lab is an independent technical Proof of Concept for cryptographically
+verifiable bank receipts. It is not affiliated with, endorsed by, or operated by
+Nu. All people, accounts and transactions are fictitious.
 
-## Problema
+## Problem
 
-Una imagen de un comprobante puede editarse sin dejar señales evidentes. Un QR
-también puede copiarse desde un comprobante legítimo. Confiar en la apariencia de
-una captura no demuestra quién la emitió ni cuál es el estado actual del pago.
+Screenshots and visual receipts can be edited. A legitimate QR can also be copied
+onto a false document. Neither a polished image nor a QR is proof by itself.
 
-## Solución propuesta
+## Solution
 
-NuProof Lab crea un snapshot explícito, lo serializa de forma determinista,
-calcula SHA-256 y lo firma con Ed25519 en un servidor local. El QR v2 contiene
-ese snapshot enmascarado, firma, hash, `keyId` y un token aleatorio. La app
-valida localmente la prueba y consulta por separado el estado actual cuando la
-API está disponible.
+```text
+Bank transaction
+      |
+      v
+Canonical receipt + SHA-256 + Ed25519
+      |
+      v
+QR verification URL
+      |
+      v
+Versioned verification API
+      |
+      v
+Authenticity + historical status + current status
+```
 
-## Arquitectura
+NuProof keeps the signed state at issuance separate from the current transaction
+state. A later reversal therefore returns an authentic receipt with
+`statusAtIssuance=SETTLED` and `currentStatus=REVERSED`.
+
+## Tech stack
+
+- Next.js 16 App Router, React 19 and strict TypeScript
+- Tailwind CSS 4
+- PostgreSQL 17 and Drizzle ORM
+- Ed25519 signatures and SHA-256 payload hashes
+- HMAC-SHA-256 verification-token digests
+- Zod HTTP validation, Vitest and Playwright
+
+## Architecture
 
 ```mermaid
-flowchart LR
-  M[React Native + Expo] --> A[REST API local]
-  A --> T[Transaction Service]
-  T --> R[Receipt Service]
-  R --> S[Signing Service]
-  S --> K[(Private key PEM)]
-  T --> D[(SQLite)]
-  A --> V[Verification Service]
-  V --> D
-  V --> P[(Public key)]
+flowchart TD
+  Browser[Browser / React UI] -->|HTTPS| HTTP[Next.js /api/v1 Route Handlers]
+  HTTP --> App[Application Services]
+  App --> Domain[Domain Models and Ports]
+  App --> Crypto[SigningProvider / PublicKeyRegistry]
+  App --> Repos[Repository Interfaces]
+  Crypto --> Env[Server-only environment secrets]
+  Repos --> Drizzle[Drizzle adapters]
+  Drizzle --> PG[(PostgreSQL)]
 ```
 
-La clave privada se genera una vez en `apps/server/data/keys`, está ignorada por
-Git y nunca cruza la API. Consulte [Architecture](docs/ARCHITECTURE.md),
-[Threat Model](docs/THREAT_MODEL.md) y
-[Production Architecture](docs/PRODUCTION_ARCHITECTURE.md).
+The UI and API currently deploy together as one Next.js application. Business
+logic does not live in React or Route Handlers, so `src/domain`,
+`src/application` and backend adapters can later move to an API service.
 
-## Flujo criptográfico
+## Local development
 
-```text
-transaction -> canonical JSON -> SHA-256 -> Ed25519 signature -> receipt -> QR
-QR -> local Ed25519 verification -> optional API lookup -> current status
-```
-
-El snapshot firmado incluye importe, moneda, timestamp, destino enmascarado,
-referencia, estado emitido y `keyId`. La reversión cambia solo el estado actual.
-El hash ayuda a inspeccionar; no sustituye la firma.
-
-## Estructura
-
-```text
-apps/
-  mobile/                 Expo Router, NativeWind, camera y QR
-  server/                 Express, node:sqlite y node:crypto
-packages/
-  shared/                 Schemas Zod y contratos TypeScript
-docs/
-  ARCHITECTURE.md
-  PRODUCTION_ARCHITECTURE.md
-  THREAT_MODEL.md
-```
-
-## Requisitos
-
-- Node.js 22.5 o superior (`node:sqlite` está disponible desde esa línea)
-- npm 10 o superior
-- Expo Go compatible con SDK 57, emulador Android o simulador iOS
-- Teléfono y computador en la misma red para una demo física
-
-## Instalación y backend
+Requirements: Node.js 22, npm and Docker Desktop.
 
 ```bash
 npm install
-cp .env.example .env
-npm run build
-npm run dev:server
+docker compose up -d
+npm run keys:generate
 ```
 
-En PowerShell use `Copy-Item .env.example .env`. La API escucha por defecto en
-`0.0.0.0:3000`, crea las claves/BD y carga cuatro fixtures. Compruebe:
+Create `.env.local` from `.env.example`, then copy the four generated
+`NUPROOF_*` lines from `.env.keys`. Do not commit either file.
 
 ```bash
-curl http://localhost:3000/api/health
+npm run db:migrate
+npm run db:seed
+npm run dev
 ```
 
-## React Native
+Open `http://localhost:3000`. The demo seed is deliberately blocked unless
+`DEMO_MODE=true`.
 
-En otra terminal:
+## Money convention
+
+`amountMinor` is always an integer number of currency minor units. For COP this
+PoC uses two minor units per peso: `25_000_000` represents `$250.000 COP`. The UI
+formats values; financial values are never calculated with floating point.
+
+## Security model
+
+- The server builds a versioned canonical receipt payload.
+- SHA-256 detects stored-payload changes and Ed25519 proves issuer signing.
+- The private PKCS#8 key is server-only and never enters HTML, JSON, QR or client
+  JavaScript.
+- PostgreSQL stores only an HMAC digest of the random 256-bit verification token.
+- A receipt stores `keyId`; the public registry can retain multiple rotated keys.
+- The QR contains only a bearer verification URL, not complete banking data.
+- Public verification responses follow data minimization.
+
+See [CRYPTOGRAPHY.md](docs/CRYPTOGRAPHY.md) and
+[THREAT_MODEL.md](docs/THREAT_MODEL.md).
+
+## Fraud simulations
+
+`/security-lab` executes real API and cryptographic paths for:
+
+- protected amount manipulation;
+- a valid QR copied onto a false amount;
+- invented receipt ID;
+- invalid verification token;
+- transaction reversal.
+
+The security test suite also mutates the persisted receipt amount and proves that
+verification returns `INVALID_SIGNATURE`.
+
+## Testing
 
 ```bash
-npm run dev:mobile
-```
-
-Configuración de URL:
-
-- Android Emulator: `EXPO_PUBLIC_API_URL=http://10.0.2.2:3000`
-- iOS Simulator: `EXPO_PUBLIC_API_URL=http://localhost:3000`
-- Dispositivo físico: `EXPO_PUBLIC_API_URL=http://IP_DEL_PC:3000`
-
-En PowerShell puede identificar la IPv4 local con `Get-NetIPAddress
--AddressFamily IPv4`. Elija la interfaz Wi-Fi activa, configure la variable antes
-de iniciar Expo y permita el puerto 3000 en el firewall solo para la red privada.
-El móvil y el PC deben estar en la misma red. Ejemplo:
-
-```powershell
-$env:EXPO_PUBLIC_API_URL="http://192.168.1.25:3000"
-npm run dev:mobile
-```
-
-`EXPO_PUBLIC_NUPROOF_ED25519_PUBLIC_KEY` fija la clave pública confiable para
-`nuproof-dev-key-2026-01`. Es pública y puede configurarse en Vercel. Debe
-actualizarse junto con `keyId` cuando se roten las claves. Nunca configure una
-clave tomada del propio QR como clave confiable.
-
-iOS Simulator requiere macOS. Expo Go permite probar iOS físico cuando la
-versión instalada admite SDK 57.
-
-## API
-
-| Método | Endpoint | Uso |
-| --- | --- | --- |
-| `GET` | `/api/health` | Salud |
-| `GET` | `/api/security/public-key` | Clave pública Ed25519 |
-| `GET` / `POST` | `/api/transactions` | Listar / crear |
-| `GET` | `/api/transactions/:id` | Comprobante del emisor |
-| `POST` | `/api/verify` | Verificación pública |
-| `POST` | `/api/transactions/:id/reverse` | Reversión demo |
-| `POST` | `/api/lab/verify-tampered` | Prueba criptográfica controlada |
-| `GET` | `/api/audit` | Auditoría demo |
-| `POST` | `/api/demo/reset` | Restaurar fixtures, conservar claves |
-
-## Pruebas
-
-```bash
-npm test
 npm run typecheck
 npm run lint
+npm test
+npm run build
+npm run test:e2e
 ```
 
-La suite cubre canonicalización, firma válida, cambio de importe/destino/fecha,
-clave incorrecta, ID/token inválidos, reversión, API, alteración directa de
-SQLite y verificación portable sin servidor. El caso obligatorio firma
-`100000`, sustituye por `8000000`, recalcula incluso el hash y exige una firma
-inválida.
+`tests/unit`, `tests/integration` and `tests/security` run without a shared
+database. Playwright requires the local PostgreSQL setup.
 
-## Guion de fraude
+## Vercel deployment
 
-1. Abra **Issuer Simulator**, cree `$250.000` para `Laura Gómez`, `**** 5832`.
-2. Abra el comprobante y escanee su QR desde otro dispositivo.
-3. Confirme el resultado verde y los datos originales.
-4. En **Security Lab**, ejecute **Modificar valor**. El servidor reconstruye el
-   payload alterado y Ed25519 responde `INVALID_SIGNATURE`.
-5. Ejecute **Copiar QR verdadero**. El QR pegado sobre el documento falso
-   recupera el importe original, no el dibujado.
-6. Ejecute **ID inventado** y observe `NOT_FOUND`.
-7. Ejecute **Reversar transacción**. La firma sigue válida, pero el estado aparece
-   en amarillo como `REVERSED`.
-8. Use **Reset demo** para repetir. Las claves no se regeneran.
+Create one Vercel project at the repository root with framework preset
+**Next.js**. Do not set an Output Directory and do not select `apps/mobile` or
+`apps/server`.
 
-Un QR v2 nuevo puede escanearse desde la versión web publicada en Vercel aunque
-el servidor local esté apagado. En ese caso se muestra firma e integridad
-válidas junto a la advertencia **Estado actual no disponible**. Los QR v1
-generados antes de esta versión deben volver a mostrarse/generarse para incluir
-la prueba portable.
+Set these server environment variables:
 
-En builds públicas sin `EXPO_PUBLIC_API_URL`, la app no consulta el `localhost`
-del visitante. La búsqueda de estado se habilita únicamente en desarrollo o
-cuando se configura explícitamente una API pública.
+- `DATABASE_URL`: managed PostgreSQL URL, including the provider-required TLS
+  mode such as `sslmode=require`;
+- `NUPROOF_PRIVATE_KEY`: base64 PKCS#8 private key;
+- `NUPROOF_PUBLIC_KEYS_JSON`: JSON public-key registry;
+- `NUPROOF_KEY_ID`: active signing key ID;
+- `NUPROOF_TOKEN_PEPPER`: random secret of at least 32 characters;
+- `APP_URL`: canonical HTTPS deployment URL;
+- `DEMO_MODE`: `true` only for this public PoC;
+- `INTERNAL_API_KEY`: random issuer API credential for non-browser clients.
 
-## Decisiones de seguridad
+Apply migrations explicitly against the managed database before deployment:
 
-- Importes enteros; nunca `float`.
-- Inputs y QR con esquemas estrictos y rechazo de campos inesperados.
-- UUID aleatorios y tokens generados con CSPRNG.
-- Comparación de token con tiempo constante.
-- Respuesta pública minimizada y auditoría sin secretos.
-- Rate limiting local sobre verificación.
-- Estado histórico inmutable separado del estado operativo actual.
+```bash
+DATABASE_URL="..." npm run db:migrate
+DATABASE_URL="..." npm run db:seed
+```
 
-## Limitaciones
-
-`node:sqlite` continúa marcado experimental en Node 22. La clave PEM, SQLite,
-auditoría mutable, rate limiter en memoria y simulador sin autenticación son
-simplificaciones explícitas para ejecución local. La lista interna de
-comprobantes expone tokens a la app del emisor y no debe ser una API pública.
-
-Producción requiere HSM/KMS, key rotation formal, IAM, mTLS, OAuth2, WAF, SIEM,
-logs inmutables, almacenamiento altamente disponible, secrets manager, tracing,
-disaster recovery y separación real del signing service.
-
-## Siguientes iteraciones
-
-- Registro versionado de claves públicas y rotación.
-- Autenticación/roles del emisor y separación de superficies.
-- Pruebas E2E de cámara en dispositivos y accesibilidad automatizada.
-- Recibos descargables que incorporen el payload firmado y protección anti-downgrade.
-- Idempotencia y conciliación con un core transaccional simulado.
+The Vercel build never runs migrations, seeds data or generates keys.

@@ -27,6 +27,7 @@ export interface SignatureResult {
 }
 
 export interface SigningProvider {
+  activeKeyId(): string;
   sign(data: Uint8Array): Promise<SignatureResult>;
 }
 
