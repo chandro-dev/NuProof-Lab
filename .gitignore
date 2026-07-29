@@ -1,13 +1,16 @@
 node_modules/
 dist/
+.next/
+playwright-report/
+test-results/
 .expo/
 .env
 .env.*
 !.env.example
+keys/
 apps/server/data/*.sqlite
 apps/server/data/*.sqlite-*
 apps/server/data/keys/
 coverage/
 *.log
 .DS_Store
-

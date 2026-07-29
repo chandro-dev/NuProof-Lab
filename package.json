@@ -1,18 +1,50 @@
 {
   "name": "nuproof-lab",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "build": "npm run build -w @nuproof/shared && npm run build -w @nuproof/server",
-    "typecheck": "npm run build -w @nuproof/shared && npm run typecheck -w @nuproof/server && npm run typecheck -w @nuproof/mobile --if-present",
-    "lint": "npm run build -w @nuproof/shared && npm run lint -w @nuproof/server && npm run lint -w @nuproof/mobile --if-present",
-    "test": "npm run test -w @nuproof/server && npm run test -w @nuproof/mobile",
-    "dev:server": "npm run dev -w @nuproof/server",
-    "dev:mobile": "npm run start -w @nuproof/mobile"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "keys:generate": "tsx scripts/generate-keys.ts"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@zxing/browser": "^0.2.1",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^1.27.0",
+    "next": "^16.2.12",
+    "pg": "^8.22.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.2.0",
+    "@types/pg": "^8.16.0",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.2.12",
+    "jsdom": "^26.1.0",
+    "tsx": "^4.20.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "engines": {
     "node": ">=22.5"
